@@ -88,36 +88,36 @@ namespace perlin_6
         }
 
 
-        static double[,] GeneratePerlinNoise(int size, double[,] cornerVectors, int divisionSize)
+        static double[,] GeneratePerlinNoise(int size, int baseDivisionSize, int octaves, double persistence, double lacunarity)
         {
             double[,] outputMap = new double[size, size];
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    double pointX = x;
-                    double pointY = y;
-                    outputMap[x, y] = Perlin(pointX, pointY, cornerVectors, divisionSize);
-                }
-            }
+            double maxPossible = 0;
+            double amplitude = 1;
+            double frequency = 1;
+            Random rnd = new Random();
 
-            double wavelength1 = 0.75;
-            double wavelength2 = 0.5;
-            double wavelength3 = 0.25;
-            double[,] elevation1 = new double[size, size];
-            double[,] elevation2 = new double[size, size];
-            double[,] elevation3 = new double[size, size];
-            Octave(elevation1, outputMap, wavelength1, size);
-            Octave(elevation2, outputMap, wavelength2, size);
-            Octave(elevation3, outputMap, wavelength3, size);
+            for (int i = 0; i < octaves; i++)
+            {
+                int newDivisionSize = (int)(baseDivisionSize / frequency);
+                double[,] gradients = GenerateGradients((size / newDivisionSize) + 2, rnd);
+
+                for (int y = 0; y < size; y++)
+                {
+                    for (int x = 0; x < size; x++)
+                    {
+                        outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
+                    }
+                }
+                maxPossible += amplitude;
+                amplitude *= persistence;
+                frequency *= lacunarity;
+            }
 
             double min = 1000000, max = -1000000;
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                    outputMap[x, y] = (double)(outputMap[x, y] + 1.67 * elevation1[x, y] + 2 * elevation2[x, y] + 4 * elevation3[x, y]) / (1 + wavelength1 + wavelength2 + wavelength3);
-                    outputMap[x, y] = Math.Pow(outputMap[x, y], 0.8);
                     if (outputMap[x, y] < min)
                     {
                         min = outputMap[x, y];
@@ -129,7 +129,6 @@ namespace perlin_6
                 }
             }
 
-            // Need to adjust the ranges here using the min max 
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
@@ -260,8 +259,13 @@ namespace perlin_6
             Random rnd = new Random();
             double[,] cornerVectors = GenerateGradients(cornerVectorSize, rnd);
 
-            double[,] moisture = GeneratePerlinNoise(size, cornerVectors, divisionSize);
-            double[,] elevation = GeneratePerlinNoise(size, cornerVectors, divisionSize);
+            int octaves = 5;
+            double persistence = 0.5;
+            double lacunarity = 2.0;
+            int baseDivisionSize = 32;
+
+            double[,] moisture = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
+            double[,] elevation = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
             Print(size, elevation, moisture);
 
             Console.WriteLine("Done");
