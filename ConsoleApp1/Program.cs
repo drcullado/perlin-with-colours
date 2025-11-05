@@ -136,6 +136,23 @@ namespace perlin_6
             return input;
         }
 
+
+        static void Island(int size, double[,] input)
+        {
+            double[,] islandGradient = new double[size, size];
+            double maxDistance = Math.Sqrt(Math.Pow(size, 2) + Math.Pow(size, 2));
+            double minDistance = Math.Sqrt(Math.Pow(size/2, 2) + Math.Pow(size/2, 2));
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                   
+                }
+            }
+        }
+
+
+
         static void Print(int size, double[,] elevationMap, double[,] moistureMap)
         {
             for (int y = 0; y < size; y++)
@@ -246,7 +263,7 @@ namespace perlin_6
             SetUpConsole();
             // int choice = Menu();
             
-            Console.Write("Enter grid size: ");
+            Console.Write("Enter x size of grid: ");
             int size = int.Parse(Console.ReadLine());
             Console.Write("Enter division size (pixels per cell): ");
             int divisionSize = int.Parse(Console.ReadLine());
