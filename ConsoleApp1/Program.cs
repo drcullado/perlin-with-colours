@@ -76,18 +76,6 @@ namespace perlin_6
         }
 
 
-        static void Octave(double[,] elevation, double[,] outputMap, double wavelength, int size)
-        {
-            for (int y = 0; y < size - 1; y++)
-            {
-                for (int x = 0; x < size - 1; x++)
-                {
-                    elevation[x, y] = outputMap[x, y] * wavelength;
-                }
-            }
-        }
-
-
         static double[,] GeneratePerlinNoise(int size, int baseDivisionSize, int octaves, double persistence, double lacunarity)
         {
             double[,] outputMap = new double[size, size];
@@ -113,33 +101,40 @@ namespace perlin_6
                 frequency *= lacunarity;
             }
 
-            double min = 1000000, max = -1000000;
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    if (outputMap[x, y] < min)
-                    {
-                        min = outputMap[x, y];
-                    }
-                    if (outputMap[x, y] > max)
-                    {
-                        max = outputMap[x, y];
-                    }
-                }
-            }
-
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    outputMap[x, y] = (outputMap[x, y] - min) / (max - min);
-                    outputMap[x, y] = Math.Pow(outputMap[x, y], 2);
-                }
-            }
+            Normalisation(size, outputMap);
             return outputMap;
         }
 
+        static double[,] Normalisation(int size, double[,] input)
+        {
+            double min = 1000000, max = -1000000;
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    if (input[x, y] < min)
+                    {
+                        min = input[x, y];
+                    }
+                    if (input[x, y] > max)
+                    {
+                        max = input[x, y];
+                    }
+                }
+            }
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    input[x, y] = (input[x, y] - min) / (max - min);
+                    input[x, y] = Math.Pow(input[x, y], 2);
+                }
+            }
+
+            return input;
+        }
 
         static void Print(int size, double[,] elevationMap, double[,] moistureMap)
         {
@@ -249,7 +244,8 @@ namespace perlin_6
         static void Main(string[] args)
         {
             SetUpConsole();
-
+            // int choice = Menu();
+            
             Console.Write("Enter grid size: ");
             int size = int.Parse(Console.ReadLine());
             Console.Write("Enter division size (pixels per cell): ");
@@ -271,5 +267,32 @@ namespace perlin_6
             Console.WriteLine("Done");
             Console.ReadKey();
         }
+
+
+        static int Menu()
+        {
+            int choice = 0;
+            Console.WriteLine("Choose generative algorithm to use: ");
+            Console.WriteLine();
+            Console.WriteLine("1. Perlin Noise");
+            Console.WriteLine("2. ");
+            Console.WriteLine("9. Close program");
+            Console.SetCursorPosition(36, 0);
+
+            while (int.TryParse(Console.ReadLine(), out choice) == false)
+            {
+                Console.Clear();
+                Console.WriteLine("Invalid option chosen");
+                Console.WriteLine("Choose generative algorithm to use: ");
+                Console.WriteLine();
+                Console.WriteLine("1. Perlin Noise");
+                Console.WriteLine("2. ");
+                Console.SetCursorPosition(1, 36);   
+            }
+                choice = int.Parse(Console.ReadLine());
+                return choice;
+        }
+
+
     }
 }
