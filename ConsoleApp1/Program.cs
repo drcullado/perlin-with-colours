@@ -64,7 +64,7 @@ namespace perlin_6
 
         static double[,] GenerateGradients(int size, Random rnd)
         {
-            double[,] outputGrid = new double[size,size];
+            double[,] outputGrid = new double[size, size];
             for (int x = 0; x < size; x++)
             {
                 for (int y = 0; y < size; y++)
@@ -99,6 +99,16 @@ namespace perlin_6
                 maxPossible += amplitude;
                 amplitude *= persistence;
                 frequency *= lacunarity;
+            }
+
+            double[,] islandGradient = new double[size, size];
+            islandGradient = Island(size);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    outputMap[x, y] = outputMap[x, y] + islandGradient[x, y];
+                }
             }
 
             Normalisation(size, outputMap);
@@ -137,18 +147,37 @@ namespace perlin_6
         }
 
 
-        static void Island(int size, double[,] input)
+        static double[,] Island(int size)
         {
             double[,] islandGradient = new double[size, size];
-            double maxDistance = Math.Sqrt(Math.Pow(size, 2) + Math.Pow(size, 2));
-            double minDistance = Math.Sqrt(Math.Pow(size/2, 2) + Math.Pow(size/2, 2));
+            double middleX = size / 2;
+            double middleY = size / 2;
+            double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
+            double minDistance = Math.Sqrt(Math.Pow(Math.Abs((double)(middleX - (int)size / 2)), 2) + Math.Pow(Math.Abs((double)(middleY - (int)size / 2)), 2)); // need to fix this
+            if (minDistance == 0)
+            {
+                minDistance = 0.1;
+            }
+
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                   
+                    double distX = Math.Abs(x - middleX);
+                    double distY = Math.Abs(y - middleY);
+                    islandGradient[x,y] = 1 - Math.Sqrt(Math.Pow(distX, 2) + Math.Pow(distY, 2));
                 }
             }
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    islandGradient[x, y] = (islandGradient[x, y] - minDistance) / (maxDistance - minDistance);
+                }
+            }
+
+            return islandGradient;
         }
 
 
@@ -161,7 +190,7 @@ namespace perlin_6
                 {
                     int val = (int)((elevationMap[x, y] * 255));
 
-                    if (elevationMap[x,y] < 0.15)
+                    if (elevationMap[x, y] < 0.15)
                     {
                         Console.Write($"\u001b[48;2;{68};{68};{122}m  ");
                     }
@@ -173,11 +202,11 @@ namespace perlin_6
 
                     else if (elevationMap[x, y] < 0.3)
                     {
-                        if (moistureMap[x,y] < 0.16)
+                        if (moistureMap[x, y] < 0.16)
                         {
                             Console.Write($"\u001b[48;2;{210};{185};{139}m  ");
                         }
-                        else if (moistureMap[x,y] < 0.5)
+                        else if (moistureMap[x, y] < 0.5)
                         {
                             Console.Write($"\u001b[48;2;{136};{170};{85}m  ");
                         }
@@ -224,7 +253,7 @@ namespace perlin_6
                             Console.Write($"\u001b[48;2;{153};{170};{119}m  ");
                         }
                     }
-                    else 
+                    else
                     {
                         if (moistureMap[x, y] < 0.1)
                         {
@@ -258,11 +287,12 @@ namespace perlin_6
             }
         }
 
+
         static void Main(string[] args)
         {
             SetUpConsole();
             // int choice = Menu();
-            
+
             Console.Write("Enter x size of grid: ");
             int size = int.Parse(Console.ReadLine());
             Console.Write("Enter division size (pixels per cell): ");
@@ -304,12 +334,10 @@ namespace perlin_6
                 Console.WriteLine();
                 Console.WriteLine("1. Perlin Noise");
                 Console.WriteLine("2. ");
-                Console.SetCursorPosition(1, 36);   
+                Console.SetCursorPosition(1, 36);
             }
-                choice = int.Parse(Console.ReadLine());
-                return choice;
+            choice = int.Parse(Console.ReadLine());
+            return choice;
         }
-
-
     }
 }
