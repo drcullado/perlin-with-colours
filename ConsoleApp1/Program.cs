@@ -101,16 +101,6 @@ namespace perlin_6
                 frequency *= lacunarity;
             }
 
-            double[,] islandGradient = new double[size, size];
-            islandGradient = Island(size);
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    outputMap[x, y] = outputMap[x, y] + islandGradient[x, y];
-                }
-            }
-
             Normalisation(size, outputMap);
             return outputMap;
         }
@@ -147,37 +137,37 @@ namespace perlin_6
         }
 
 
-        static double[,] Island(int size)
+        static double[,] Island(int size, int percentBlnd, double[,] input, double waterThreshold)
         {
             double[,] islandGradient = new double[size, size];
             double middleX = size / 2;
             double middleY = size / 2;
             double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
-            double minDistance = Math.Sqrt(Math.Pow(Math.Abs((double)(middleX - (int)size / 2)), 2) + Math.Pow(Math.Abs((double)(middleY - (int)size / 2)), 2)); // need to fix this
-            if (minDistance == 0)
-            {
-                minDistance = 0.1;
-            }
+            double percentBlend = (double)percentBlnd / 100;
 
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
-                    double distX = Math.Abs(x - middleX);
-                    double distY = Math.Abs(y - middleY);
-                    islandGradient[x,y] = 1 - Math.Sqrt(Math.Pow(distX, 2) + Math.Pow(distY, 2));
+                    double distX = (x - middleX) / middleX;
+                    double distY = (y - middleY) / middleY;
+                    islandGradient[x, y] = (1 - Math.Pow(distX, 2)) * (1 - Math.Pow(distY, 2));
+
+                    input[x, y] += (islandGradient[x, y] - input[x, y]) * percentBlend;
+                    if (input[x,y] < 0)
+                    {
+                        input[x, y] = 0;
+                    }
+                    else if (input[x, y] > 1)
+                    {
+                        input[x, y] = 1;
+                    }
+                    // start value from input, end value from islandGradient, multiply difference by percent blend, add to input
                 }
             }
 
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    islandGradient[x, y] = (islandGradient[x, y] - minDistance) / (maxDistance - minDistance);
-                }
-            }
-
-            return islandGradient;
+            // Print2(size, islandGradient);
+            return input;
         }
 
 
@@ -192,11 +182,11 @@ namespace perlin_6
 
                     if (elevationMap[x, y] < 0.15)
                     {
-                        Console.Write($"\u001b[48;2;{68};{68};{122}m  ");
+                        Console.Write($"\u001b[48;2;{22};{22};{69}m  "); // deep water
                     }
                     else if (elevationMap[x, y] < 0.2)
                     {
-                        Console.Write($"\u001b[48;2;{160};{144};{119}m  ");
+                        Console.Write($"\u001b[48;2;{68};{68};{122}m  "); // shallow water
                     }
 
 
@@ -287,17 +277,33 @@ namespace perlin_6
             }
         }
 
+        static void Print2(int size, double[,] elevationMap)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int val = (int)((elevationMap[x, y] * 255));
+                    Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
+                }
+                Console.WriteLine("\u001b[0m");
+            }
+        }
+
 
         static void Main(string[] args)
         {
             SetUpConsole();
-            // int choice = Menu();
 
-            Console.Write("Enter x size of grid: ");
-            int size = int.Parse(Console.ReadLine());
-            Console.Write("Enter division size (pixels per cell): ");
-            int divisionSize = int.Parse(Console.ReadLine());
+            int size = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
+            // Console.Write("Enter division size (pixels per cell): ");
+            // int divisionSize = int.Parse(Console.ReadLine());
+            int divisionSize = 50;
+            int percentBlend = ValidateInt("Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100);
+            Console.WriteLine("Zoom out of console as much as possible then press ENTER when ready");
+            Console.ReadKey();
 
+            double waterThreshold = 0.2;
             int cornerVectorSize = (int)(((double)size + divisionSize - 1) / divisionSize) + 1;
             Random rnd = new Random();
             double[,] cornerVectors = GenerateGradients(cornerVectorSize, rnd);
@@ -309,35 +315,41 @@ namespace perlin_6
 
             double[,] moisture = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
             double[,] elevation = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
+            elevation = Island(size, percentBlend, elevation, waterThreshold);
+            // elevation = Normalisation(size, moisture);
+
+
+
             Print(size, elevation, moisture);
 
             Console.WriteLine("Done");
             Console.ReadKey();
         }
 
-
-        static int Menu()
+        static int ValidateInt(string text, int min, int max)
         {
-            int choice = 0;
-            Console.WriteLine("Choose generative algorithm to use: ");
-            Console.WriteLine();
-            Console.WriteLine("1. Perlin Noise");
-            Console.WriteLine("2. ");
-            Console.WriteLine("9. Close program");
-            Console.SetCursorPosition(36, 0);
-
-            while (int.TryParse(Console.ReadLine(), out choice) == false)
+            while (true)
             {
-                Console.Clear();
-                Console.WriteLine("Invalid option chosen");
-                Console.WriteLine("Choose generative algorithm to use: ");
-                Console.WriteLine();
-                Console.WriteLine("1. Perlin Noise");
-                Console.WriteLine("2. ");
-                Console.SetCursorPosition(1, 36);
+                int ans;
+                Console.Write(text);
+                if (int.TryParse(Console.ReadLine(), out ans))
+                {
+                    if (ans >= min && ans <= max)
+                    {
+                        return ans;
+                    }
+                    else
+                    {
+                        Console.Clear();
+                        Console.WriteLine($"Number must be between {min} and {max} inclusive");
+                    }
+                }
+                else
+                {
+                    Console.Clear();
+                    Console.WriteLine("Input must be an integer");
+                }
             }
-            choice = int.Parse(Console.ReadLine());
-            return choice;
         }
     }
 }
