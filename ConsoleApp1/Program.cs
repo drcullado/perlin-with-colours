@@ -62,12 +62,12 @@ namespace perlin_6
         }
 
 
-        static double[,] GenerateGradients(int size, Random rnd)
+        static double[,] GenerateGradients(int sizeX, int sizeY, Random rnd)
         {
-            double[,] outputGrid = new double[size, size];
-            for (int x = 0; x < size; x++)
+            double[,] outputGrid = new double[sizeX, sizeY];
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int y = 0; y < size; y++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     outputGrid[x, y] = rnd.NextDouble() * Math.PI * 2;
                 }
@@ -76,9 +76,9 @@ namespace perlin_6
         }
 
 
-        static double[,] GeneratePerlinNoise(int size, int baseDivisionSize, int octaves, double persistence, double lacunarity)
+        static double[,] GeneratePerlinNoise(int sizeX, int sizeY, int baseDivisionSize, int octaves, double persistence, double lacunarity)
         {
-            double[,] outputMap = new double[size, size];
+            double[,] outputMap = new double[sizeX, sizeY];
             double maxPossible = 0;
             double amplitude = 1;
             double frequency = 1;
@@ -87,11 +87,11 @@ namespace perlin_6
             for (int i = 0; i < octaves; i++)
             {
                 int newDivisionSize = (int)(baseDivisionSize / frequency);
-                double[,] gradients = GenerateGradients((size / newDivisionSize) + 2, rnd);
+                double[,] gradients = GenerateGradients((sizeX / newDivisionSize) + 2, (sizeX / newDivisionSize) + 2, rnd);
 
-                for (int y = 0; y < size; y++)
+                for (int y = 0; y < sizeY; y++)
                 {
-                    for (int x = 0; x < size; x++)
+                    for (int x = 0; x < sizeX; x++)
                     {
                         outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
                     }
@@ -101,17 +101,17 @@ namespace perlin_6
                 frequency *= lacunarity;
             }
 
-            Normalisation(size, outputMap);
+            Normalisation(sizeX, sizeY, outputMap);
             return outputMap;
         }
 
-        static double[,] Normalisation(int size, double[,] input)
+        static double[,] Normalisation(int sizeX, int sizeY, double[,] input)
         {
             double min = 1000000, max = -1000000;
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     if (input[x, y] < min)
                     {
@@ -124,9 +124,9 @@ namespace perlin_6
                 }
             }
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     input[x, y] = (input[x, y] - min) / (max - min);
                     input[x, y] = Math.Pow(input[x, y], 2);
@@ -137,17 +137,17 @@ namespace perlin_6
         }
 
 
-        static double[,] Island(int size, int percentBlnd, double[,] input, double waterThreshold)
+        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input, double waterThreshold)
         {
-            double[,] islandGradient = new double[size, size];
-            double middleX = size / 2;
-            double middleY = size / 2;
+            double[,] islandGradient = new double[sizeX, sizeY];
+            double middleX = sizeX / 2;
+            double middleY = sizeY / 2;
             double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
             double percentBlend = (double)percentBlnd / 100;
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeY; x++)
                 {
                     double distX = (x - middleX) / middleX;
                     double distY = (y - middleY) / middleY;
@@ -172,11 +172,11 @@ namespace perlin_6
 
 
 
-        static void Print(int size, double[,] elevationMap, double[,] moistureMap)
+        static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap)
         {
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
 
@@ -266,9 +266,9 @@ namespace perlin_6
                 Console.WriteLine("\u001b[0m");
             }
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
                     Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
@@ -277,25 +277,26 @@ namespace perlin_6
             }
         }
 
-        static void Print2(int size, double[,] elevationMap)
-        {
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    int val = (int)((elevationMap[x, y] * 255));
-                    Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
-                }
-                Console.WriteLine("\u001b[0m");
-            }
-        }
+        //static void Print2(int sizeX, int sizeY, double[,] elevationMap)
+        //{
+        //    for (int y = 0; y < sizeY; y++)
+        //    {
+        //        for (int x = 0; x < sizeX; x++)
+        //        {
+        //            int val = (int)((elevationMap[x, y] * 255));
+        //            Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
+        //        }
+        //        Console.WriteLine("\u001b[0m");
+        //    }
+        //}
 
 
         static void Main(string[] args)
         {
             SetUpConsole();
 
-            int size = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
+            int sizeX = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
+            int sizeY = ValidateInt("Enter y size of grid (10 to 500): ", 10, 500);
             // Console.Write("Enter division size (pixels per cell): ");
             // int divisionSize = int.Parse(Console.ReadLine());
             int divisionSize = 50;
@@ -304,24 +305,22 @@ namespace perlin_6
             Console.ReadKey();
 
             double waterThreshold = 0.2;
-            int cornerVectorSize = (int)(((double)size + divisionSize - 1) / divisionSize) + 1;
+            int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
+            int cornerVectorSizeY = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
             Random rnd = new Random();
-            double[,] cornerVectors = GenerateGradients(cornerVectorSize, rnd);
+            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rnd);
 
             int octaves = 5;
             double persistence = 0.5;
             double lacunarity = 2.0;
             int baseDivisionSize = 32;
 
-            double[,] moisture = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
-            double[,] elevation = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
-            elevation = Island(size, percentBlend, elevation, waterThreshold);
+            double[,] moisture = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            double[,] elevation = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            elevation = Island(sizeX, sizeY, percentBlend, elevation, waterThreshold);
             // elevation = Normalisation(size, moisture);
 
-
-
-            Print(size, elevation, moisture);
-
+            Print(sizeX, sizeY, elevation, moisture);
             Console.WriteLine("Done");
             Console.ReadKey();
         }
