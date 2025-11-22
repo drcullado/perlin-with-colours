@@ -30,8 +30,6 @@ namespace perlin_6
         private static extern IntPtr GetConsoleWindow();
 
 
-
-
         static double Fade(double t)
         {
             return t * t * t * (t * (t * 6 - 15) + 10);
@@ -137,7 +135,7 @@ namespace perlin_6
         }
 
 
-        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input, double waterThreshold)
+        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input)
         {
             double[,] islandGradient = new double[sizeX, sizeY];
             double middleX = sizeX / 2;
@@ -147,7 +145,7 @@ namespace perlin_6
 
             for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < sizeY; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     double distX = (x - middleX) / middleX;
                     double distY = (y - middleY) / middleY;
@@ -162,7 +160,6 @@ namespace perlin_6
                     {
                         input[x, y] = 1;
                     }
-                    // start value from input, end value from islandGradient, multiply difference by percent blend, add to input
                 }
             }
 
@@ -172,7 +169,7 @@ namespace perlin_6
 
 
 
-        static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap)
+        static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap, double waterThreshold)
         {
             for (int y = 0; y < sizeY; y++)
             {
@@ -213,7 +210,7 @@ namespace perlin_6
                     {
                         if (moistureMap[x, y] < 0.16)
                         {
-                            Console.Write($"\u001b[48;2;{210};{210};{111559}m  ");
+                            Console.Write($"\u001b[48;2;{210};{210};{159}m  ");
                         }
                         else if (moistureMap[x, y] < 0.5)
                         {
@@ -305,6 +302,7 @@ namespace perlin_6
             Console.ReadKey();
 
             double waterThreshold = 0.2;
+
             int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
             int cornerVectorSizeY = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
             Random rnd = new Random();
@@ -317,10 +315,11 @@ namespace perlin_6
 
             double[,] moisture = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
             double[,] elevation = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
-            elevation = Island(sizeX, sizeY, percentBlend, elevation, waterThreshold);
+            elevation = Island(sizeX, sizeY, percentBlend, elevation);
+            // moisture = Island(sizeX, sizeY, percentBlend, elevation);
             // elevation = Normalisation(size, moisture);
 
-            Print(sizeX, sizeY, elevation, moisture);
+            Print(sizeX, sizeY, elevation, moisture, waterThreshold);
             Console.WriteLine("Done");
             Console.ReadKey();
         }
