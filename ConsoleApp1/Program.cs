@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -292,6 +293,16 @@ namespace perlin_6
         {
             SetUpConsole();
 
+            bool seedUse = ValidateYN("Do you have a set seed to use? (y/n): ");
+            if (seedUse == true)
+            {
+                int seed = ValidateInt("Enter seed to use: ", 0, 2147483647);
+            }
+            else
+            {
+
+            }
+
             int sizeX = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
             int sizeY = ValidateInt("Enter y size of grid (10 to 500): ", 10, 500);
             // Console.Write("Enter division size (pixels per cell): ");
@@ -346,6 +357,28 @@ namespace perlin_6
                 {
                     Console.Clear();
                     Console.WriteLine("Input must be an integer");
+                }
+            }
+        }
+
+        static bool ValidateYN(string text)
+        {
+            while (true)
+            {
+                Console.Write(text);
+                string ans = Console.ReadLine().Trim().ToLower().Substring(0,1);
+                if (ans == "y")
+                {
+                    return true;
+                }
+                else if (ans == "n")
+                {
+                    return false;
+                }
+                else 
+                {
+                    Console.Clear();
+                    Console.WriteLine("Input must be 'y' or 'n'");
                 }
             }
         }
