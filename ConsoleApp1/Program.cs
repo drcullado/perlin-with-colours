@@ -298,10 +298,7 @@ namespace perlin_6
             {
                 int seed = ValidateInt("Enter seed to use: ", 0, 2147483647);
             }
-            else
-            {
 
-            }
 
             int sizeX = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
             int sizeY = ValidateInt("Enter y size of grid (10 to 500): ", 10, 500);
