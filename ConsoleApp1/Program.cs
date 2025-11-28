@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.Eventing.Reader;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 namespace perlin_6
 {
@@ -31,17 +31,17 @@ namespace perlin_6
         private static extern IntPtr GetConsoleWindow();
 
 
+
+
         static double Fade(double t)
         {
             return t * t * t * (t * (t * 6 - 15) + 10);
         }
 
-
         static double Lerp(double x, double y, double z)
         {
             return x + z * (y - x);
         }
-
 
         static double Perlin(double x, double y, double[,] cornerVectors, int divisionSize)
         {
@@ -60,13 +60,12 @@ namespace perlin_6
             return (val + 1) * 0.5;
         }
 
-
-        static double[,] GenerateGradients(int sizeX, int sizeY, Random rnd)
+        static double[,] GenerateGradients(int size, Random rnd)
         {
-            double[,] outputGrid = new double[sizeX, sizeY];
-            for (int y = 0; y < sizeY; y++)
+            double[,] outputGrid = new double[size, size];
+            for (int x = 0; x < size; x++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int y = 0; y < size; y++)
                 {
                     outputGrid[x, y] = rnd.NextDouble() * Math.PI * 2;
                 }
@@ -75,22 +74,22 @@ namespace perlin_6
         }
 
 
-        static double[,] GeneratePerlinNoise(int sizeX, int sizeY, int baseDivisionSize, int octaves, double persistence, double lacunarity)
+        static double[,] GeneratePerlinNoise(int size, int baseDivisionSize, int octaves, double persistence, double lacunarity)
         {
-            double[,] outputMap = new double[sizeX, sizeY];
+            double[,] outputMap = new double[size, size];
             double maxPossible = 0;
             double amplitude = 1;
-            double frequency = 1;
+            double frequency = 0.5;
             Random rnd = new Random();
 
             for (int i = 0; i < octaves; i++)
             {
                 int newDivisionSize = (int)(baseDivisionSize / frequency);
-                double[,] gradients = GenerateGradients((sizeX / newDivisionSize) + 2, (sizeX / newDivisionSize) + 2, rnd);
+                double[,] gradients = GenerateGradients((size / newDivisionSize) + 2, rnd);
 
-                for (int y = 0; y < sizeY; y++)
+                for (int y = 0; y < size; y++)
                 {
-                    for (int x = 0; x < sizeX; x++)
+                    for (int x = 0; x < size; x++)
                     {
                         outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
                     }
@@ -100,17 +99,17 @@ namespace perlin_6
                 frequency *= lacunarity;
             }
 
-            Normalisation(sizeX, sizeY, outputMap);
+            Normalisation(size, outputMap);
             return outputMap;
         }
 
-        static double[,] Normalisation(int sizeX, int sizeY, double[,] input)
+        static double[,] Normalisation(int size, double[,] input)
         {
             double min = 1000000, max = -1000000;
 
-            for (int y = 0; y < sizeY; y++)
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int x = 0; x < size; x++)
                 {
                     if (input[x, y] < min)
                     {
@@ -123,9 +122,9 @@ namespace perlin_6
                 }
             }
 
-            for (int y = 0; y < sizeY; y++)
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int x = 0; x < size; x++)
                 {
                     input[x, y] = (input[x, y] - min) / (max - min);
                     input[x, y] = Math.Pow(input[x, y], 2);
@@ -136,24 +135,24 @@ namespace perlin_6
         }
 
 
-        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input)
+        static double[,] Island(int size, int percentBlnd, double[,] input, double waterThreshold)
         {
-            double[,] islandGradient = new double[sizeX, sizeY];
-            double middleX = sizeX / 2;
-            double middleY = sizeY / 2;
+            double[,] islandGradient = new double[size, size];
+            double middleX = size / 2;
+            double middleY = size / 2;
             double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
             double percentBlend = (double)percentBlnd / 100;
 
-            for (int y = 0; y < sizeY; y++)
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int x = 0; x < size; x++)
                 {
                     double distX = (x - middleX) / middleX;
                     double distY = (y - middleY) / middleY;
                     islandGradient[x, y] = (1 - Math.Pow(distX, 2)) * (1 - Math.Pow(distY, 2));
 
                     input[x, y] += (islandGradient[x, y] - input[x, y]) * percentBlend;
-                    if (input[x,y] < 0)
+                    if (input[x, y] < 0)
                     {
                         input[x, y] = 0;
                     }
@@ -161,6 +160,7 @@ namespace perlin_6
                     {
                         input[x, y] = 1;
                     }
+                    // start value from input, end value from islandGradient, multiply difference by percent blend, add to input
                 }
             }
 
@@ -169,12 +169,11 @@ namespace perlin_6
         }
 
 
-
-        static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap, double waterThreshold)
+        static void Print(int size, double[,] elevationMap, double[,] moistureMap)
         {
-            for (int y = 0; y < sizeY; y++)
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int x = 0; x < size; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
 
@@ -211,7 +210,7 @@ namespace perlin_6
                     {
                         if (moistureMap[x, y] < 0.16)
                         {
-                            Console.Write($"\u001b[48;2;{210};{210};{159}m  ");
+                            Console.Write($"\u001b[48;2;{210};{210};{111559}m  ");
                         }
                         else if (moistureMap[x, y] < 0.5)
                         {
@@ -264,9 +263,9 @@ namespace perlin_6
                 Console.WriteLine("\u001b[0m");
             }
 
-            for (int y = 0; y < sizeY; y++)
+            for (int y = 0; y < size; y++)
             {
-                for (int x = 0; x < sizeX; x++)
+                for (int x = 0; x < size; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
                     Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
@@ -275,33 +274,28 @@ namespace perlin_6
             }
         }
 
-        //static void Print2(int sizeX, int sizeY, double[,] elevationMap)
-        //{
-        //    for (int y = 0; y < sizeY; y++)
-        //    {
-        //        for (int x = 0; x < sizeX; x++)
-        //        {
-        //            int val = (int)((elevationMap[x, y] * 255));
-        //            Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
-        //        }
-        //        Console.WriteLine("\u001b[0m");
-        //    }
-        //}
-
+        static void Print2(int size, double[,] elevationMap)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int val = (int)((elevationMap[x, y] * 255));
+                    Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
+                }
+                Console.WriteLine("\u001b[0m");
+            }
+        }
 
         static void Main(string[] args)
         {
             SetUpConsole();
 
-            bool seedUse = ValidateYN("Do you have a set seed to use? (y/n): ");
-            if (seedUse == true)
-            {
-                int seed = ValidateInt("Enter seed to use: ", 0, 2147483647);
-            }
+            Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+            Console.WriteLine("");
+            ConstraintsMenu();
 
-
-            int sizeX = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
-            int sizeY = ValidateInt("Enter y size of grid (10 to 500): ", 10, 500);
+            int size = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
             // Console.Write("Enter division size (pixels per cell): ");
             // int divisionSize = int.Parse(Console.ReadLine());
             int divisionSize = 50;
@@ -310,24 +304,24 @@ namespace perlin_6
             Console.ReadKey();
 
             double waterThreshold = 0.2;
-
-            int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
-            int cornerVectorSizeY = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
+            int cornerVectorSize = (int)(((double)size + divisionSize - 1) / divisionSize) + 1;
             Random rnd = new Random();
-            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rnd);
+            double[,] cornerVectors = GenerateGradients(cornerVectorSize, rnd);
 
             int octaves = 5;
             double persistence = 0.5;
             double lacunarity = 2.0;
             int baseDivisionSize = 32;
 
-            double[,] moisture = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
-            double[,] elevation = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
-            elevation = Island(sizeX, sizeY, percentBlend, elevation);
-            // moisture = Island(sizeX, sizeY, percentBlend, elevation);
+            double[,] moisture = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
+            double[,] elevation = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
+            elevation = Island(size, percentBlend, elevation, waterThreshold);
             // elevation = Normalisation(size, moisture);
 
-            Print(sizeX, sizeY, elevation, moisture, waterThreshold);
+
+
+            Print(size, elevation, moisture);
+
             Console.WriteLine("Done");
             Console.ReadKey();
         }
@@ -358,26 +352,70 @@ namespace perlin_6
             }
         }
 
-        static bool ValidateYN(string text)
+        
+        static void ConstraintsMenu()
         {
-            while (true)
+            Console.WriteLine("  CONSTRAINTS MENU");
+            Console.WriteLine("> Enter x size of grid (10 to 500): ");
+            Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended): ");
+            Console.WriteLine("  Enter north temperature (0 to 100): ");
+            Console.WriteLine("  Enter south temperature (0 to 100): ");
+
+            int numOfOptions = 4;
+            int option = 0;
+            do
             {
-                Console.Write(text);
-                string ans = Console.ReadLine().Trim().ToLower().Substring(0,1);
-                if (ans == "y")
+                ConsoleKeyInfo key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.DownArrow && option < numOfOptions) // down normal
                 {
-                    return true;
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option++;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
                 }
-                else if (ans == "n")
+                else if (key.Key == ConsoleKey.DownArrow && option > 1) // down bottom
                 {
-                    return false;
+                    Console.CursorTop = 15;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option = 0;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
                 }
-                else 
+                else if (key.Key == ConsoleKey.UpArrow && option < numOfOptions) // up normal
                 {
-                    Console.Clear();
-                    Console.WriteLine("Input must be 'y' or 'n'");
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option--;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
                 }
-            }
+                else if (key.Key == ConsoleKey.UpArrow && option < 1) // up top
+                {
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option = numOfOptions + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.Enter && option < 1) // enter
+                {
+
+                }
+                else if (key.Key == ConsoleKey.Escape && option < 1) // escape
+                {   
+
+                }
+
+            } while (true);
+
+
+            Console.WriteLine("Zoom out of console as much as possible then press ENTER when ready");
+            Console.ReadKey();
         }
     }
 }
