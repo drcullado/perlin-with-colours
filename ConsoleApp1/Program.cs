@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
@@ -293,7 +295,12 @@ namespace perlin_6
 
             Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
             Console.WriteLine("");
-            ConstraintsMenu();
+            List<int> constraintsList = new List<int>();
+            constraintsList = ConstraintsMenu(constraintsList);
+
+
+
+
 
             int size = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
             // Console.Write("Enter division size (pixels per cell): ");
@@ -302,6 +309,7 @@ namespace perlin_6
             int percentBlend = ValidateInt("Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100);
             Console.WriteLine("Zoom out of console as much as possible then press ENTER when ready");
             Console.ReadKey();
+
 
             double waterThreshold = 0.2;
             int cornerVectorSize = (int)(((double)size + divisionSize - 1) / divisionSize) + 1;
@@ -331,7 +339,7 @@ namespace perlin_6
             while (true)
             {
                 int ans;
-                Console.Write(text);
+                // Console.Write(text);
                 if (int.TryParse(Console.ReadLine(), out ans))
                 {
                     if (ans >= min && ans <= max)
@@ -352,70 +360,163 @@ namespace perlin_6
             }
         }
 
-        
-        static void ConstraintsMenu()
+        static int ValidateInt2(string text, int min, int max, int option)
         {
+            while (true)
+            {
+                int ans;
+                if (int.TryParse(Console.ReadLine(), out ans))
+                {
+                    if (ans >= min && ans <= max)
+                    {
+                        Console.CursorTop = option + 16;
+                        Console.WriteLine($"{text}{ans}                                            ");
+                        return ans;
+                    }
+                    else
+                    {
+                        Console.CursorTop = option + 16;
+                        Console.Write($"{text}");
+                        Console.CursorLeft = text.Length;
+                        Console.CursorTop = option + 16;
+                        Console.Write($"   Number must be between {min} and {max} inclusive");
+                        Console.CursorLeft = text.Length - 1;
+                    }
+                }
+                else
+                {
+                    Console.CursorTop = option + 16;
+                    Console.Write(text);
+                    Console.CursorLeft = text.Length;
+                    Console.WriteLine("   Input must be an integer");
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = text.Length - 1;
+                }
+            }
+        }
+
+        static void SeedMenu()
+        {
+            Console.WriteLine("  SEED PREFERENCE");
+            Console.WriteLine("> Load a previous seed with contstraints");
+            Console.WriteLine("  Use a previous seed");
+            Console.WriteLine("  Use a new random seed");
+
+        }
+        static List<int> ConstraintsMenu(List<int> constraintsList)
+        {
+            // Console.WriteLine("  CONSTRAINTS MENU");
+            // Console.WriteLine("> Enter x size of grid (10 to 500)                          : ");
+            // Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended): ");
+            // Console.WriteLine("  Enter north temperature (0 to 100)                        : ");
+            // Console.WriteLine("  Enter south temperature (0 to 100)                        : ");
+            // Console.WriteLine("  Generate Map");
+
             Console.WriteLine("  CONSTRAINTS MENU");
-            Console.WriteLine("> Enter x size of grid (10 to 500): ");
+            Console.WriteLine("> Enter x size of grid (10 to 500)                          : ");
+            Console.WriteLine("  Enter y size of grid (10 to 500)                          : ");
             Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended): ");
-            Console.WriteLine("  Enter north temperature (0 to 100): ");
-            Console.WriteLine("  Enter south temperature (0 to 100): ");
+            Console.WriteLine("  Generate Map (zoom out as much as possible before selecting ");
+
+            int option1 = 0;
+            int option2 = 0;
+            int option3 = 0;
 
             int numOfOptions = 4;
             int option = 0;
+            bool exit = false;
+            bool seedMenu = false;
             do
             {
                 ConsoleKeyInfo key = Console.ReadKey(true);
-                if (key.Key == ConsoleKey.DownArrow && option < numOfOptions) // down normal
+                if (key.Key == ConsoleKey.DownArrow && option < numOfOptions - 1) // down normal
                 {
                     Console.CursorTop = option + 16;
                     Console.CursorLeft = 0;
                     Console.WriteLine(" ");
                     option++;
+                    Console.CursorTop = option + 16;
                     Console.CursorLeft = 0;
                     Console.WriteLine(">");
                 }
-                else if (key.Key == ConsoleKey.DownArrow && option > 1) // down bottom
+                else if (key.Key == ConsoleKey.DownArrow && option == numOfOptions - 1) // down bottom
                 {
-                    Console.CursorTop = 15;
+                    Console.CursorTop = option + 16;
                     Console.CursorLeft = 0;
                     Console.WriteLine(" ");
                     option = 0;
+                    Console.CursorTop = 16;
                     Console.CursorLeft = 0;
                     Console.WriteLine(">");
                 }
-                else if (key.Key == ConsoleKey.UpArrow && option < numOfOptions) // up normal
+                else if (key.Key == ConsoleKey.UpArrow && option == 0) // up top
+                {
+                    Console.CursorTop = 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option = numOfOptions - 1;
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.UpArrow && option > 0) // up normal
                 {
                     Console.CursorTop = option + 16;
                     Console.CursorLeft = 0;
                     Console.WriteLine(" ");
                     option--;
-                    Console.CursorLeft = 0;
-                    Console.WriteLine(">");
-                }
-                else if (key.Key == ConsoleKey.UpArrow && option < 1) // up top
-                {
                     Console.CursorTop = option + 16;
                     Console.CursorLeft = 0;
-                    Console.WriteLine(" ");
-                    option = numOfOptions + 16;
-                    Console.CursorLeft = 0;
                     Console.WriteLine(">");
                 }
-                else if (key.Key == ConsoleKey.Enter && option < 1) // enter
+                else if (key.Key == ConsoleKey.Enter && option != numOfOptions - 1) // enter
                 {
+                    if (option == numOfOptions - 1)
+                    {
+                        exit = true;
+                        return constraintsList;
+                    }
+                    else if (option == 0)
+                    {
+                        Console.CursorTop = option + 16;
+                        Console.CursorLeft = 62;
+                        int choice = ValidateInt2("> Enter x size of grid (10 to 500)                          : ", 10, 500, option);
+                        Console.CursorTop = option + 16;
+                    }
+                    else if (option == 1)
+                    {
+                        Console.CursorTop = option + 16;
+                        Console.CursorLeft = 62;
+                        int choice = ValidateInt2("> Enter y size of grid (10 to 500)                          : ", 10, 500, option);
+                        Console.CursorTop = option + 16;
 
+                    }
+                    else if (option == 2)
+                    {
+                        Console.CursorTop = option + 16;
+                        Console.CursorLeft = 62;
+                        int choice = ValidateInt2("  Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100, option);
+                        Console.CursorTop = option + 16;
+
+                    }
+                }
+                else if (key.Key == ConsoleKey.Enter && option == numOfOptions)
+                {
+                    exit = true;
                 }
                 else if (key.Key == ConsoleKey.Escape && option < 1) // escape
-                {   
-
+                {
+                    exit = true;
+                    seedMenu = true;
                 }
 
-            } while (true);
+            } while (exit != true);
 
-
-            Console.WriteLine("Zoom out of console as much as possible then press ENTER when ready");
-            Console.ReadKey();
+            return constraintsList;
+            if (seedMenu == true)
+            {
+                SeedMenu();
+            }
         }
     }
 }
