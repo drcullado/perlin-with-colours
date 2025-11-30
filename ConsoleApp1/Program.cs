@@ -62,12 +62,12 @@ namespace perlin_6
             return (val + 1) * 0.5;
         }
 
-        static double[,] GenerateGradients(int size, Random rnd)
+        static double[,] GenerateGradients(int sizeX, int sizeY, Random rnd)
         {
-            double[,] outputGrid = new double[size, size];
-            for (int x = 0; x < size; x++)
+            double[,] outputGrid = new double[sizeX, sizeY];
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int y = 0; y < size; y++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     outputGrid[x, y] = rnd.NextDouble() * Math.PI * 2;
                 }
@@ -75,10 +75,9 @@ namespace perlin_6
             return outputGrid;
         }
 
-
-        static double[,] GeneratePerlinNoise(int size, int baseDivisionSize, int octaves, double persistence, double lacunarity)
+        static double[,] GeneratePerlinNoise(int sizeX, int sizeY, int baseDivisionSize, int octaves, double persistence, double lacunarity)
         {
-            double[,] outputMap = new double[size, size];
+            double[,] outputMap = new double[sizeX, sizeY];
             double maxPossible = 0;
             double amplitude = 1;
             double frequency = 0.5;
@@ -87,11 +86,11 @@ namespace perlin_6
             for (int i = 0; i < octaves; i++)
             {
                 int newDivisionSize = (int)(baseDivisionSize / frequency);
-                double[,] gradients = GenerateGradients((size / newDivisionSize) + 2, rnd);
+                double[,] gradients = GenerateGradients((sizeX / newDivisionSize) + 2, (sizeY / newDivisionSize) + 2, rnd);
 
-                for (int y = 0; y < size; y++)
+                for (int y = 0; y < sizeY; y++)
                 {
-                    for (int x = 0; x < size; x++)
+                    for (int x = 0; x < sizeY; x++)
                     {
                         outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
                     }
@@ -101,17 +100,17 @@ namespace perlin_6
                 frequency *= lacunarity;
             }
 
-            Normalisation(size, outputMap);
+            Normalisation(sizeX, sizeY, outputMap);
             return outputMap;
         }
 
-        static double[,] Normalisation(int size, double[,] input)
+        static double[,] Normalisation(int sizeX, int sizeY, double[,] input)
         {
             double min = 1000000, max = -1000000;
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     if (input[x, y] < min)
                     {
@@ -124,9 +123,9 @@ namespace perlin_6
                 }
             }
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     input[x, y] = (input[x, y] - min) / (max - min);
                     input[x, y] = Math.Pow(input[x, y], 2);
@@ -136,18 +135,17 @@ namespace perlin_6
             return input;
         }
 
-
-        static double[,] Island(int size, int percentBlnd, double[,] input, double waterThreshold)
+        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input, double waterThreshold)
         {
-            double[,] islandGradient = new double[size, size];
-            double middleX = size / 2;
-            double middleY = size / 2;
+            double[,] islandGradient = new double[sizeX, sizeY];
+            double middleX = sizeX / 2;
+            double middleY = sizeY / 2;
             double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
             double percentBlend = (double)percentBlnd / 100;
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     double distX = (x - middleX) / middleX;
                     double distY = (y - middleY) / middleY;
@@ -170,12 +168,11 @@ namespace perlin_6
             return input;
         }
 
-
-        static void Print(int size, double[,] elevationMap, double[,] moistureMap)
+        static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap)
         {
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
 
@@ -265,9 +262,9 @@ namespace perlin_6
                 Console.WriteLine("\u001b[0m");
             }
 
-            for (int y = 0; y < size; y++)
+            for (int y = 0; y < sizeY; y++)
             {
-                for (int x = 0; x < size; x++)
+                for (int x = 0; x < sizeX; x++)
                 {
                     int val = (int)((elevationMap[x, y] * 255));
                     Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
@@ -288,47 +285,80 @@ namespace perlin_6
                 Console.WriteLine("\u001b[0m");
             }
         }
-
+        static void ConstraintInitialise(int[] constraintsList)
+        {
+            int divisionSize = 50;
+            int sizeX = constraintsList[0];
+            int sizeY = constraintsList[0];
+            int percentBlend = constraintsList[0];
+            int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
+            int cornerVectorSizeY = (int)(((double)sizeY + divisionSize - 1) / divisionSize) + 1;
+        }
+        
         static void Main(string[] args)
         {
             SetUpConsole();
+            bool exit = false;
+            int[] constraintsList = new int[3];
+            do
+            {
+                int seedMenuChoice = 0;
+                Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                Console.WriteLine("");
+                seedMenuChoice += SeedMenu();
 
-            Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
-            Console.WriteLine("");
-            List<int> constraintsList = new List<int>();
-            constraintsList = ConstraintsMenu(constraintsList);
+                if (seedMenuChoice == 1) // seed and constraints given
+                {
+                    Console.Clear();
+                    Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                    int seed = ValidateInt("Enter a given seed: ", 0, 2147483647); // fix number here
+                }
+                else if (seedMenuChoice == 2) // old seed, new constraints
+                {
+                    Console.Clear();
+                    Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                    Console.WriteLine("");
+                    constraintsList = ConstraintsMenu(constraintsList);
+                    ConstraintInitialise(constraintsList);
 
+                }
+                else if (seedMenuChoice == 3) // rnd seed, new constraints
+                {
+                    Console.Clear();
+                    Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                    Console.WriteLine("");
+                    constraintsList = ConstraintsMenu(constraintsList);
+                    ConstraintInitialise(constraintsList);
+                }
 
+                if (constraintsList[0] != null)
+                {
+                    exit = true;
+                }
+            } while (exit == false);
 
-
-
-            int size = ValidateInt("Enter x size of grid (10 to 500): ", 10, 500);
-            // Console.Write("Enter division size (pixels per cell): ");
-            // int divisionSize = int.Parse(Console.ReadLine());
             int divisionSize = 50;
-            int percentBlend = ValidateInt("Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100);
-            Console.WriteLine("Zoom out of console as much as possible then press ENTER when ready");
-            Console.ReadKey();
+            int sizeX = constraintsList[0];
+            int sizeY = constraintsList[0];
+            int percentBlend = constraintsList[0];
+            int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
+            int cornerVectorSizeY = (int)(((double)sizeY + divisionSize - 1) / divisionSize) + 1;
 
-
-            double waterThreshold = 0.2;
-            int cornerVectorSize = (int)(((double)size + divisionSize - 1) / divisionSize) + 1;
             Random rnd = new Random();
-            double[,] cornerVectors = GenerateGradients(cornerVectorSize, rnd);
+            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rnd);
 
             int octaves = 5;
             double persistence = 0.5;
             double lacunarity = 2.0;
             int baseDivisionSize = 32;
 
-            double[,] moisture = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
-            double[,] elevation = GeneratePerlinNoise(size, baseDivisionSize, octaves, persistence, lacunarity);
-            elevation = Island(size, percentBlend, elevation, waterThreshold);
+            double waterThreshold = 0.2;
+            double[,] moisture = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            double[,] elevation = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            elevation = Island(sizeX, sizeY, percentBlend, elevation, waterThreshold);
             // elevation = Normalisation(size, moisture);
 
-
-
-            Print(size, elevation, moisture);
+            Print(sizeX, sizeY, elevation, moisture);
 
             Console.WriteLine("Done");
             Console.ReadKey();
@@ -395,15 +425,77 @@ namespace perlin_6
             }
         }
 
-        static void SeedMenu()
+        static int SeedMenu()
         {
             Console.WriteLine("  SEED PREFERENCE");
-            Console.WriteLine("> Load a previous seed with contstraints");
+            Console.WriteLine("> Load a previous seed with constraints");
             Console.WriteLine("  Use a previous seed");
             Console.WriteLine("  Use a new random seed");
 
+            int numOfOptions = 3;
+            int option = 0;
+            do
+            {
+                ConsoleKeyInfo key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.DownArrow && option < numOfOptions - 1) // down normal
+                {
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option++;
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.DownArrow && option == numOfOptions - 1) // down bottom
+                {
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option = 0;
+                    Console.CursorTop = 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.UpArrow && option == 0) // up top
+                {
+                    Console.CursorTop = 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option = numOfOptions - 1;
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.UpArrow && option > 0) // up normal
+                {
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(" ");
+                    option--;
+                    Console.CursorTop = option + 16;
+                    Console.CursorLeft = 0;
+                    Console.WriteLine(">");
+                }
+                else if (key.Key == ConsoleKey.Enter) // enter
+                {
+                    if (option == 0)
+                    {
+                        return 1;
+                    }
+                    else if (option == 1)
+                    {
+                        return 2;
+                    }
+                    else if (option == 2)
+                    {
+                        return 3;
+                    }
+                }
+            } while (true);
         }
-        static List<int> ConstraintsMenu(List<int> constraintsList)
+
+        static int[] ConstraintsMenu(int[] constraintsList)
         {
             // Console.WriteLine("  CONSTRAINTS MENU");
             // Console.WriteLine("> Enter x size of grid (10 to 500)                          : ");
@@ -413,19 +505,13 @@ namespace perlin_6
             // Console.WriteLine("  Generate Map");
 
             Console.WriteLine("  CONSTRAINTS MENU");
-            Console.WriteLine("> Enter x size of grid (10 to 500)                          : ");
-            Console.WriteLine("  Enter y size of grid (10 to 500)                          : ");
-            Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended): ");
-            Console.WriteLine("  Generate Map (zoom out as much as possible before selecting ");
-
-            int option1 = 0;
-            int option2 = 0;
-            int option3 = 0;
+            Console.WriteLine("> Enter x size of grid (10 to 500)                           : ");
+            Console.WriteLine("  Enter y size of grid (10 to 500)                           : ");
+            Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended) : ");
+            Console.WriteLine("  Generate Map (zoom out as much as possible before selecting) ");
 
             int numOfOptions = 4;
             int option = 0;
-            bool exit = false;
-            bool seedMenu = false;
             do
             {
                 ConsoleKeyInfo key = Console.ReadKey(true);
@@ -473,50 +559,44 @@ namespace perlin_6
                 {
                     if (option == numOfOptions - 1)
                     {
-                        exit = true;
                         return constraintsList;
                     }
                     else if (option == 0)
                     {
                         Console.CursorTop = option + 16;
-                        Console.CursorLeft = 62;
+                        Console.CursorLeft = 63;
                         int choice = ValidateInt2("> Enter x size of grid (10 to 500)                          : ", 10, 500, option);
+                        constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
                     else if (option == 1)
                     {
                         Console.CursorTop = option + 16;
-                        Console.CursorLeft = 62;
+                        Console.CursorLeft = 63;
                         int choice = ValidateInt2("> Enter y size of grid (10 to 500)                          : ", 10, 500, option);
+                        constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
-
                     }
                     else if (option == 2)
                     {
                         Console.CursorTop = option + 16;
-                        Console.CursorLeft = 62;
+                        Console.CursorLeft = 63;
                         int choice = ValidateInt2("  Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100, option);
+                        constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
-
                     }
                 }
-                else if (key.Key == ConsoleKey.Enter && option == numOfOptions)
+                else if (key.Key == ConsoleKey.Enter && option == numOfOptions - 1) // generate map
                 {
-                    exit = true;
+                    return constraintsList;
                 }
                 else if (key.Key == ConsoleKey.Escape && option < 1) // escape
                 {
-                    exit = true;
-                    seedMenu = true;
+                    constraintsList = new int[numOfOptions];
+                    return constraintsList;
                 }
 
-            } while (exit != true);
-
-            return constraintsList;
-            if (seedMenu == true)
-            {
-                SeedMenu();
-            }
+            } while (true);
         }
     }
 }
