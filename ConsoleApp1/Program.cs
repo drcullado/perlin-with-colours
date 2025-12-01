@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 
-namespace perlin_6
+namespace Nea_as_of_december
 {
     internal class Program
     {
@@ -33,7 +33,7 @@ namespace perlin_6
         private static extern IntPtr GetConsoleWindow();
 
 
-
+        // seed, trees, colours, simplex
 
         static double Fade(double t)
         {
@@ -62,14 +62,14 @@ namespace perlin_6
             return (val + 1) * 0.5;
         }
 
-        static double[,] GenerateGradients(int sizeX, int sizeY, Random rnd)
+        static double[,] GenerateGradients(int sizeX, int sizeY, Random rndSeed)
         {
             double[,] outputGrid = new double[sizeX, sizeY];
             for (int y = 0; y < sizeY; y++)
             {
                 for (int x = 0; x < sizeX; x++)
                 {
-                    outputGrid[x, y] = rnd.NextDouble() * Math.PI * 2;
+                    outputGrid[x, y] = rndSeed.NextDouble() * Math.PI * 2;
                 }
             }
             return outputGrid;
@@ -285,6 +285,7 @@ namespace perlin_6
                 Console.WriteLine("\u001b[0m");
             }
         }
+
         static void ConstraintInitialise(int[] constraintsList)
         {
             int divisionSize = 50;
@@ -294,15 +295,19 @@ namespace perlin_6
             int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
             int cornerVectorSizeY = (int)(((double)sizeY + divisionSize - 1) / divisionSize) + 1;
         }
-        
+
         static void Main(string[] args)
         {
             SetUpConsole();
             bool exit = false;
             int[] constraintsList = new int[3];
+            double seed = 0;
+            Random random = new Random();
+
             do
             {
                 int seedMenuChoice = 0;
+                Console.Clear();
                 Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
                 Console.WriteLine("");
                 seedMenuChoice += SeedMenu();
@@ -311,7 +316,7 @@ namespace perlin_6
                 {
                     Console.Clear();
                     Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
-                    int seed = ValidateInt("Enter a given seed: ", 0, 2147483647); // fix number here
+                    seed = ValidateSeed("Enter a given seed: ", "2147000000"); // fix number here
                 }
                 else if (seedMenuChoice == 2) // old seed, new constraints
                 {
@@ -330,8 +335,19 @@ namespace perlin_6
                     constraintsList = ConstraintsMenu(constraintsList);
                     ConstraintInitialise(constraintsList);
                 }
+                else if (seedMenuChoice == 4) // random generation
+                {
+                    Console.WriteLine("Zoom out before continuing and press any key when ready");
+                    Console.ReadKey();
+                    Console.Clear();
+                    Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                    Console.WriteLine("");
+                    constraintsList[0] = 100;
+                    constraintsList[1] = 100;
+                    constraintsList[2] = random.Next(0, 100);
+                }
 
-                if (constraintsList[0] != null)
+                if (constraintsList[0] != 0)
                 {
                     exit = true;
                 }
@@ -339,13 +355,13 @@ namespace perlin_6
 
             int divisionSize = 50;
             int sizeX = constraintsList[0];
-            int sizeY = constraintsList[0];
-            int percentBlend = constraintsList[0];
+            int sizeY = constraintsList[1];
+            int percentBlend = constraintsList[2];
             int cornerVectorSizeX = (int)(((double)sizeX + divisionSize - 1) / divisionSize) + 1;
             int cornerVectorSizeY = (int)(((double)sizeY + divisionSize - 1) / divisionSize) + 1;
 
-            Random rnd = new Random();
-            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rnd);
+            Random rndSeed = new Random((int)seed); // make sure its the proper number here
+            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rndSeed);
 
             int octaves = 5;
             double persistence = 0.5;
@@ -364,12 +380,13 @@ namespace perlin_6
             Console.ReadKey();
         }
 
-        static int ValidateInt(string text, int min, int max)
+        static int ValidateInt(string text, double min, double max)
         {
             while (true)
             {
                 int ans;
-                // Console.Write(text);
+                Console.WriteLine("");
+                Console.Write(text);
                 if (int.TryParse(Console.ReadLine(), out ans))
                 {
                     if (ans >= min && ans <= max)
@@ -388,6 +405,69 @@ namespace perlin_6
                     Console.WriteLine("Input must be an integer");
                 }
             }
+        }
+
+        static int ValidateSeed(string text, string max)
+        {
+            do
+            {
+                Console.Clear();
+                Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
+                Console.WriteLine("");
+                Console.Write(text);
+                string input = Console.ReadLine();
+                int seed = 0;
+                int constraints = 0;
+
+                if (input.Length == 20)
+                {
+                    int.TryParse(Console.ReadLine().Substring(10, 10), out constraints);
+                    if (constraints >= 0 && constraints <= 2147483647)
+                    {
+                        string constraintsString = input.Substring(10, 10);
+                        int[] constrainsList = new int[4];
+                        constrainsList[0] = int.Parse(constraintsString.Substring(0, 3));
+                        constrainsList[0] = int.Parse(constraintsString.Substring(3, 3));
+                        constrainsList[0] = int.Parse(constraintsString.Substring(6, 2));
+                        constrainsList[0] = int.Parse(constraintsString.Substring(8, 2));
+                        ConstraintInitialise(constrainsList);
+
+                        // confirm or return to menu or smth after inputting
+                    }
+                    else
+                    {
+                        Console.CursorTop = 16;
+                        Console.Write($"{text}");
+                        Console.CursorLeft = text.Length;
+                        Console.CursorTop = 16;
+                        Console.Write($"   The last 10 digits of the seed given do not correspond to correct constraints");
+                        Console.CursorLeft = text.Length - 1;
+                    }
+                }
+                if (input.Length == 10 || input.Length == 20)
+                {
+                    int.TryParse(Console.ReadLine().Substring(0, 10), out seed);
+                    if (seed >= 0 && seed <= 2147483647)
+                    {
+                        // might need to clear and retype the title here ?
+                        return int.Parse(input);
+                        // confirm or return to menu or smth after inputting
+                    }
+                    else
+                    {
+                        Console.CursorTop = 16;
+                        Console.Write($"{text}");
+                        Console.CursorLeft = text.Length;
+                        Console.CursorTop = 16;
+                        Console.Write($"   The first 10 digits of the seed given are not a valid integer value");
+                        Console.CursorLeft = text.Length - 1;
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Length of the seed given is invalid");
+                }
+            } while (true);
         }
 
         static int ValidateInt2(string text, int min, int max, int option)
@@ -429,10 +509,11 @@ namespace perlin_6
         {
             Console.WriteLine("  SEED PREFERENCE");
             Console.WriteLine("> Load a previous seed with constraints");
-            Console.WriteLine("  Use a previous seed");
+            Console.WriteLine("  Use a previous seed with new constraints");
             Console.WriteLine("  Use a new random seed");
+            Console.WriteLine("  Fully random generation");
 
-            int numOfOptions = 3;
+            int numOfOptions = 4;
             int option = 0;
             do
             {
@@ -491,19 +572,16 @@ namespace perlin_6
                     {
                         return 3;
                     }
+                    else
+                    {
+                        return 4;
+                    }
                 }
             } while (true);
         }
 
         static int[] ConstraintsMenu(int[] constraintsList)
         {
-            // Console.WriteLine("  CONSTRAINTS MENU");
-            // Console.WriteLine("> Enter x size of grid (10 to 500)                          : ");
-            // Console.WriteLine("  Enter blend function percent (0 to 100, 20-40 reccomended): ");
-            // Console.WriteLine("  Enter north temperature (0 to 100)                        : ");
-            // Console.WriteLine("  Enter south temperature (0 to 100)                        : ");
-            // Console.WriteLine("  Generate Map");
-
             Console.WriteLine("  CONSTRAINTS MENU");
             Console.WriteLine("> Enter x size of grid (10 to 500)                           : ");
             Console.WriteLine("  Enter y size of grid (10 to 500)                           : ");
@@ -565,7 +643,7 @@ namespace perlin_6
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("> Enter x size of grid (10 to 500)                          : ", 10, 500, option);
+                        int choice = ValidateInt2("> Enter x size of grid (10 to 500)                           : ", 10, 500, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
@@ -573,7 +651,7 @@ namespace perlin_6
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("> Enter y size of grid (10 to 500)                          : ", 10, 500, option);
+                        int choice = ValidateInt2("> Enter y size of grid (10 to 500)                           : ", 10, 500, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
@@ -581,7 +659,7 @@ namespace perlin_6
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("  Enter blend function percent (0 to 100, 20-40 reccomended): ", 0, 100, option);
+                        int choice = ValidateInt2("  Enter blend function percent (0 to 100, 20-40 reccomended):  ", 0, 100, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
@@ -592,6 +670,7 @@ namespace perlin_6
                 }
                 else if (key.Key == ConsoleKey.Escape && option < 1) // escape
                 {
+                    Console.Clear();
                     constraintsList = new int[numOfOptions];
                     return constraintsList;
                 }
