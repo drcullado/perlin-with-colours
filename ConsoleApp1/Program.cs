@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Data.SqlTypes;
 using System.Linq;
 using System.Reflection;
@@ -33,140 +34,237 @@ namespace Nea_as_of_december
         private static extern IntPtr GetConsoleWindow();
 
 
-        // seed, trees, colours, simplex
+        public struct vectorAngles { public double X, Y; }
 
-        static double Fade(double t)
+        public static class PoissonDisk
         {
-            return t * t * t * (t * (t * 6 - 15) + 10);
-        }
-
-        static double Lerp(double x, double y, double z)
-        {
-            return x + z * (y - x);
-        }
-
-        static double Perlin(double x, double y, double[,] cornerVectors, int divisionSize)
-        {
-            int x0 = (int)(Math.Floor(x / divisionSize));
-            int y0 = (int)(Math.Floor(y / divisionSize));
-            int x1 = x0 + 1, y1 = y0 + 1;
-            double dx = (x / divisionSize) - x0, dy = (y / divisionSize) - y0;
-
-            double dotProd00 = Math.Cos(cornerVectors[x0, y0]) * dx + Math.Sin(cornerVectors[x0, y0]) * dy;
-            double dotProd10 = Math.Cos(cornerVectors[x1, y0]) * (dx - 1) + Math.Sin(cornerVectors[x1, y0]) * dy;
-            double dotProd01 = Math.Cos(cornerVectors[x0, y1]) * dx + Math.Sin(cornerVectors[x0, y1]) * (dy - 1);
-            double dotProd11 = Math.Cos(cornerVectors[x1, y1]) * (dx - 1) + Math.Sin(cornerVectors[x1, y1]) * (dy - 1);
-
-            double u = Fade(dx), v = Fade(dy);
-            double val = Lerp(Lerp(dotProd00, dotProd10, u), Lerp(dotProd01, dotProd11, u), v);
-            return (val + 1) * 0.5;
-        }
-
-        static double[,] GenerateGradients(int sizeX, int sizeY, Random rndSeed)
-        {
-            double[,] outputGrid = new double[sizeX, sizeY];
-            for (int y = 0; y < sizeY; y++)
+            public struct Point
             {
-                for (int x = 0; x < sizeX; x++)
+                public double X, Y;
+                public Point(double x, double y)
                 {
-                    outputGrid[x, y] = rndSeed.NextDouble() * Math.PI * 2;
+                    X = x; Y = y;
                 }
             }
-            return outputGrid;
+
+            public static List<Point> GeneratePoissonPoints(int width, int height, double radius, int k = 30, int? seed = null)
+            {
+                Random rnd = seed != null ? new Random(seed.Value) : new Random();
+
+                double cellSize = radius / Math.Sqrt(2);
+                int gridWidth = (int)Math.Ceiling(width / cellSize);
+                int gridHeight = (int)Math.Ceiling(height / cellSize);
+
+                Point?[,] grid = new Point?[gridWidth, gridHeight];
+
+                List<Point> active = new List<Point>();
+                List<Point> points = new List<Point>();
+
+                Point first = new Point(rnd.NextDouble() * width, rnd.NextDouble() * height);
+                points.Add(first);
+                active.Add(first);
+                grid[(int)(first.X / cellSize), (int)(first.Y / cellSize)] = first;
+
+                while (active.Count > 0)
+                {
+                    int index = rnd.Next(active.Count);
+                    Point checkPoint = active[index];
+                    bool found = false;
+
+                    for (int i = 0; i < k; i++)
+                    {
+                        double angle = rnd.NextDouble() * Math.PI * 2;
+                        double dist = radius + radius * rnd.NextDouble();
+                        double nx = checkPoint.X + Math.Cos(angle) * dist;
+                        double ny = checkPoint.Y + Math.Sin(angle) * dist;
+
+                        if (nx < 0 || nx >= width || ny < 0 || ny >= height)
+                            continue;
+
+                        Point otherPoint = new Point(nx, ny);
+                        if (IsFarEnough(otherPoint, grid, cellSize, radius))
+                        {
+                            points.Add(otherPoint);
+                            active.Add(otherPoint);
+                            grid[(int)(nx / cellSize), (int)(ny / cellSize)] = otherPoint;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                        active.RemoveAt(index);
+                }
+
+                return points;
+            }
+
+            private static bool IsFarEnough(Point point, Point?[,] grid, double cellSize, double radius)
+            {
+                int dx = (int)(point.X / cellSize);
+                int dy = (int)(point.Y / cellSize);
+                int search = 2; 
+
+                for (int y = dy - search; y <= dy + search; y++)
+                {
+                    for (int x = dx - search; x <= dx + search; x++)
+                    {
+                        if (x < 0 || x >= grid.GetLength(0) ||
+                            y < 0 || y >= grid.GetLength(1))
+                            continue;
+
+                        if (grid[x, y].HasValue)
+                        {
+                            Point other = grid[x, y].Value;
+                            double vx = point.X - other.X;
+                            double vy = point.Y - other.Y;
+                            if (dx * dx + dy * dy < radius * radius)
+                                return false;
+                        }
+                    }
+                }
+
+                return true;
+            }
         }
 
-        static double[,] GeneratePerlinNoise(int sizeX, int sizeY, int baseDivisionSize, int octaves, double persistence, double lacunarity)
+        public static class PerlinNoise
         {
-            double[,] outputMap = new double[sizeX, sizeY];
-            double maxPossible = 0;
-            double amplitude = 1;
-            double frequency = 0.5;
-            Random rnd = new Random();
-
-            for (int i = 0; i < octaves; i++)
+            private static double Fade(double t)
             {
-                int newDivisionSize = (int)(baseDivisionSize / frequency);
-                double[,] gradients = GenerateGradients((sizeX / newDivisionSize) + 2, (sizeY / newDivisionSize) + 2, rnd);
+                return t * t * t * (t * (t * 6 - 15) + 10);
+            }
+
+            private static double Lerp(double x, double y, double z)
+            {
+                return x + z * (y - x);
+            }
+            
+            private static double Perlin(double x, double y, vectorAngles[,] cornerVectors, int divisionSize)
+            {
+                int x0 = (int)(Math.Floor(x / divisionSize));
+                int y0 = (int)(Math.Floor(y / divisionSize));
+                int x1 = x0 + 1, y1 = y0 + 1;
+                double dx = (x / divisionSize) - x0, dy = (y / divisionSize) - y0;
+
+                double dotProd00 = (cornerVectors[x0, y0].X * dx) + (cornerVectors[x0, y0].Y * dy);
+                double dotProd10 = (cornerVectors[x1, y0].X * (dx - 1)) + (cornerVectors[x1, y0].Y * dy);
+                double dotProd01 = (cornerVectors[x0, y1].X * dx) + (cornerVectors[x0, y1].Y * (dy - 1));
+                double dotProd11 = (cornerVectors[x1, y1].X * (dx - 1)) + (cornerVectors[x1, y1].Y * (dy - 1));
+
+                double u = Fade(dx), v = Fade(dy);
+                double val = Lerp(Lerp(dotProd00, dotProd10, u), Lerp(dotProd01, dotProd11, u), v);
+                return (val + 1) * 0.5;
+            }
+
+            public static vectorAngles[,] GenerateGradients(int sizeX, int sizeY, Random rndSeed)
+            {
+                vectorAngles[,] outputGrid = new vectorAngles[sizeX, sizeY];
+                for (int y = 0; y < sizeY; y++)
+                {
+                    for (int x = 0; x < sizeX; x++)
+                    {
+                        double angle = rndSeed.NextDouble() * Math.PI * 2;
+                        outputGrid[x, y].X = Math.Cos(angle);
+                        outputGrid[x, y].Y = Math.Sin(angle);
+                    }
+                }
+                return outputGrid;
+            }
+
+            private static double[,] Normalisation(int sizeX, int sizeY, double[,] input)
+            {
+                double min = 1000000, max = -1000000;
 
                 for (int y = 0; y < sizeY; y++)
                 {
-                    for (int x = 0; x < sizeY; x++)
+                    for (int x = 0; x < sizeX; x++)
                     {
-                        outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
+                        if (input[x, y] < min)
+                        {
+                            min = input[x, y];
+                        }
+                        if (input[x, y] > max)
+                        {
+                            max = input[x, y];
+                        }
                     }
                 }
-                maxPossible += amplitude;
-                amplitude *= persistence;
-                frequency *= lacunarity;
+
+                for (int y = 0; y < sizeY; y++)
+                {
+                    for (int x = 0; x < sizeX; x++)
+                    {
+                        input[x, y] = (input[x, y] - min) / (max - min);
+                        input[x, y] = Math.Pow(input[x, y], 2);
+                    }
+                }
+
+                return input;
             }
 
-            Normalisation(sizeX, sizeY, outputMap);
-            return outputMap;
+            public static double[,] GeneratePerlinNoise(int sizeX, int sizeY, int baseDivisionSize, int octaves, double persistence, double lacunarity)
+            {
+                double[,] outputMap = new double[sizeX, sizeY];
+                double maxPossible = 0;
+                double amplitude = 1;
+                double frequency = 0.5;
+                Random rnd = new Random();
+
+                for (int i = 0; i < octaves; i++)
+                {
+                    int newDivisionSize = (int)(baseDivisionSize / frequency);
+                    vectorAngles[,] gradients = GenerateGradients((sizeX / newDivisionSize) + 2, (sizeY / newDivisionSize) + 2, rnd);
+
+                    for (int y = 0; y < sizeY; y++)
+                    {
+                        for (int x = 0; x < sizeX; x++)
+                        {
+                            outputMap[x, y] += Perlin(x, y, gradients, newDivisionSize) * amplitude;
+                        }
+                    }
+                    maxPossible += amplitude;
+                    amplitude *= persistence;
+                    frequency *= lacunarity;
+                }
+
+                Normalisation(sizeX, sizeY, outputMap);
+                return outputMap;
+            }
+
+            public static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input, double waterThreshold)
+            {
+                double[,] islandGradient = new double[sizeX, sizeY];
+                double middleX = sizeX / 2;
+                double middleY = sizeY / 2;
+                double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
+                double percentBlend = (double)percentBlnd / 100;
+
+                for (int y = 0; y < sizeY; y++)
+                {
+                    for (int x = 0; x < sizeX; x++)
+                    {
+                        double distX = (x - middleX) / middleX;
+                        double distY = (y - middleY) / middleY;
+                        islandGradient[x, y] = (1 - Math.Pow(distX, 2)) * (1 - Math.Pow(distY, 2));
+
+                        input[x, y] += (islandGradient[x, y] - input[x, y]) * percentBlend;
+                        if (input[x, y] < 0)
+                        {
+                            input[x, y] = 0;
+                        }
+                        else if (input[x, y] > 1)
+                        {
+                            input[x, y] = 1;
+                        }
+                        // start value from input, end value from islandGradient, multiply difference by percent blend, add to input
+                    }
+                }
+                return input;
+            }
+
         }
 
-        static double[,] Normalisation(int sizeX, int sizeY, double[,] input)
-        {
-            double min = 1000000, max = -1000000;
-
-            for (int y = 0; y < sizeY; y++)
-            {
-                for (int x = 0; x < sizeX; x++)
-                {
-                    if (input[x, y] < min)
-                    {
-                        min = input[x, y];
-                    }
-                    if (input[x, y] > max)
-                    {
-                        max = input[x, y];
-                    }
-                }
-            }
-
-            for (int y = 0; y < sizeY; y++)
-            {
-                for (int x = 0; x < sizeX; x++)
-                {
-                    input[x, y] = (input[x, y] - min) / (max - min);
-                    input[x, y] = Math.Pow(input[x, y], 2);
-                }
-            }
-
-            return input;
-        }
-
-        static double[,] Island(int sizeX, int sizeY, int percentBlnd, double[,] input, double waterThreshold)
-        {
-            double[,] islandGradient = new double[sizeX, sizeY];
-            double middleX = sizeX / 2;
-            double middleY = sizeY / 2;
-            double maxDistance = Math.Sqrt(Math.Pow(middleX, 2) + Math.Pow(middleY, 2));
-            double percentBlend = (double)percentBlnd / 100;
-
-            for (int y = 0; y < sizeY; y++)
-            {
-                for (int x = 0; x < sizeX; x++)
-                {
-                    double distX = (x - middleX) / middleX;
-                    double distY = (y - middleY) / middleY;
-                    islandGradient[x, y] = (1 - Math.Pow(distX, 2)) * (1 - Math.Pow(distY, 2));
-
-                    input[x, y] += (islandGradient[x, y] - input[x, y]) * percentBlend;
-                    if (input[x, y] < 0)
-                    {
-                        input[x, y] = 0;
-                    }
-                    else if (input[x, y] > 1)
-                    {
-                        input[x, y] = 1;
-                    }
-                    // start value from input, end value from islandGradient, multiply difference by percent blend, add to input
-                }
-            }
-
-            // Print2(size, islandGradient);
-            return input;
-        }
 
         static void Print(int sizeX, int sizeY, double[,] elevationMap, double[,] moistureMap)
         {
@@ -209,7 +307,7 @@ namespace Nea_as_of_december
                     {
                         if (moistureMap[x, y] < 0.16)
                         {
-                            Console.Write($"\u001b[48;2;{210};{210};{111559}m  ");
+                            Console.Write($"\u001b[48;2;{210};{210};{155}m  ");
                         }
                         else if (moistureMap[x, y] < 0.5)
                         {
@@ -273,19 +371,6 @@ namespace Nea_as_of_december
             }
         }
 
-        static void Print2(int size, double[,] elevationMap)
-        {
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
-                {
-                    int val = (int)((elevationMap[x, y] * 255));
-                    Console.Write($"\u001b[48;2;{val};{val};{val}m  ");
-                }
-                Console.WriteLine("\u001b[0m");
-            }
-        }
-
         static void ConstraintInitialise(int[] constraintsList)
         {
             int divisionSize = 50;
@@ -303,31 +388,23 @@ namespace Nea_as_of_december
             int[] constraintsList = new int[3];
             double seed = 0;
             Random random = new Random();
+            int seedMenuChoice = 0;
+
 
             do
             {
-                int seedMenuChoice = 0;
                 Console.Clear();
                 Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
                 Console.WriteLine("");
                 seedMenuChoice += SeedMenu();
 
-                if (seedMenuChoice == 1) // seed and constraints given
+                if (seedMenuChoice == 1) // using a seed
                 {
                     Console.Clear();
                     Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
                     seed = ValidateSeed("Enter a given seed: ", "2147000000"); // fix number here
                 }
-                else if (seedMenuChoice == 2) // old seed, new constraints
-                {
-                    Console.Clear();
-                    Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
-                    Console.WriteLine("");
-                    constraintsList = ConstraintsMenu(constraintsList);
-                    ConstraintInitialise(constraintsList);
-
-                }
-                else if (seedMenuChoice == 3) // rnd seed, new constraints
+                else if (seedMenuChoice == 2) // not using a seed
                 {
                     Console.Clear();
                     Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
@@ -335,14 +412,14 @@ namespace Nea_as_of_december
                     constraintsList = ConstraintsMenu(constraintsList);
                     ConstraintInitialise(constraintsList);
                 }
-                else if (seedMenuChoice == 4) // random generation
+                else if (seedMenuChoice == 3) // random generation
                 {
                     Console.WriteLine("Zoom out before continuing and press any key when ready");
                     Console.ReadKey();
                     Console.Clear();
                     Console.WriteLine("\r\n███████╗░█████╗░███╗░░██╗████████╗░█████╗░░██████╗██╗░░░██╗  ███╗░░░███╗░█████╗░██████╗░\r\n██╔════╝██╔══██╗████╗░██║╚══██╔══╝██╔══██╗██╔════╝╚██╗░██╔╝  ████╗░████║██╔══██╗██╔══██╗\r\n█████╗░░███████║██╔██╗██║░░░██║░░░███████║╚█████╗░░╚████╔╝░  ██╔████╔██║███████║██████╔╝\r\n██╔══╝░░██╔══██║██║╚████║░░░██║░░░██╔══██║░╚═══██╗░░╚██╔╝░░  ██║╚██╔╝██║██╔══██║██╔═══╝░\r\n██║░░░░░██║░░██║██║░╚███║░░░██║░░░██║░░██║██████╔╝░░░██║░░░  ██║░╚═╝░██║██║░░██║██║░░░░░\r\n╚═╝░░░░░╚═╝░░╚═╝╚═╝░░╚══╝░░░╚═╝░░░╚═╝░░╚═╝╚═════╝░░░░╚═╝░░░  ╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░░░░\r\n\r\n███╗░░░███╗░█████╗░██╗░░██╗███████╗██████╗░\r\n████╗░████║██╔══██╗██║░██╔╝██╔════╝██╔══██╗\r\n██╔████╔██║███████║█████═╝░█████╗░░██████╔╝\r\n██║╚██╔╝██║██╔══██║██╔═██╗░██╔══╝░░██╔══██╗\r\n██║░╚═╝░██║██║░░██║██║░╚██╗███████╗██║░░██║\r\n╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝╚═╝░░╚═╝");
                     Console.WriteLine("");
-                    constraintsList[0] = 100;
+                    constraintsList[0] = random.Next(0, 100); ;
                     constraintsList[1] = 100;
                     constraintsList[2] = random.Next(0, 100);
                 }
@@ -361,7 +438,7 @@ namespace Nea_as_of_december
             int cornerVectorSizeY = (int)(((double)sizeY + divisionSize - 1) / divisionSize) + 1;
 
             Random rndSeed = new Random((int)seed); // make sure its the proper number here
-            double[,] cornerVectors = GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rndSeed);
+            vectorAngles[,] cornerVectors = PerlinNoise.GenerateGradients(cornerVectorSizeX, cornerVectorSizeY, rndSeed);
 
             int octaves = 5;
             double persistence = 0.5;
@@ -369,42 +446,30 @@ namespace Nea_as_of_december
             int baseDivisionSize = 32;
 
             double waterThreshold = 0.2;
-            double[,] moisture = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
-            double[,] elevation = GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
-            elevation = Island(sizeX, sizeY, percentBlend, elevation, waterThreshold);
-            // elevation = Normalisation(size, moisture);
+            double[,] moisture = PerlinNoise.GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            double[,] elevation = PerlinNoise.GeneratePerlinNoise(sizeX, sizeY, baseDivisionSize, octaves, persistence, lacunarity);
+            elevation = PerlinNoise.Island(sizeX, sizeY, percentBlend, elevation, waterThreshold);
+
+            double treeRadius = 6.0;  
+            List<PoissonDisk.Point> treePoints =
+                PoissonDisk.GeneratePoissonPoints(sizeX, sizeY, treeRadius, 30, (int)seed);
+
+            List<PoissonDisk.Point> finalTrees = new List<PoissonDisk.Point>();
+            foreach (var p in treePoints)
+            {
+                if (elevation[(int)p.X, (int)p.Y] > 0.3)
+                    finalTrees.Add(p);
+            }
+
 
             Print(sizeX, sizeY, elevation, moisture);
 
-            Console.WriteLine("Done");
-            Console.ReadKey();
-        }
-
-        static int ValidateInt(string text, double min, double max)
-        {
-            while (true)
+            if (seedMenuChoice == 1 || seedMenuChoice == 2)
             {
-                int ans;
-                Console.WriteLine("");
-                Console.Write(text);
-                if (int.TryParse(Console.ReadLine(), out ans))
-                {
-                    if (ans >= min && ans <= max)
-                    {
-                        return ans;
-                    }
-                    else
-                    {
-                        Console.Clear();
-                        Console.WriteLine($"Number must be between {min} and {max} inclusive");
-                    }
-                }
-                else
-                {
-                    Console.Clear();
-                    Console.WriteLine("Input must be an integer");
-                }
+                Console.WriteLine($"Seed: {seed}");
             }
+                Console.WriteLine("Done");
+            Console.ReadKey();
         }
 
         static int ValidateSeed(string text, string max)
@@ -427,9 +492,9 @@ namespace Nea_as_of_december
                         string constraintsString = input.Substring(10, 10);
                         int[] constrainsList = new int[4];
                         constrainsList[0] = int.Parse(constraintsString.Substring(0, 3));
-                        constrainsList[0] = int.Parse(constraintsString.Substring(3, 3));
-                        constrainsList[0] = int.Parse(constraintsString.Substring(6, 2));
-                        constrainsList[0] = int.Parse(constraintsString.Substring(8, 2));
+                        constrainsList[1] = int.Parse(constraintsString.Substring(3, 3));
+                        constrainsList[2] = int.Parse(constraintsString.Substring(6, 2));
+                        constrainsList[3] = int.Parse(constraintsString.Substring(8, 2));
                         ConstraintInitialise(constrainsList);
 
                         // confirm or return to menu or smth after inputting
@@ -470,7 +535,7 @@ namespace Nea_as_of_december
             } while (true);
         }
 
-        static int ValidateInt2(string text, int min, int max, int option)
+        static int ValidateInt(string text, int min, int max, int option)
         {
             while (true)
             {
@@ -508,12 +573,11 @@ namespace Nea_as_of_december
         static int SeedMenu()
         {
             Console.WriteLine("  SEED PREFERENCE");
-            Console.WriteLine("> Load a previous seed with constraints");
-            Console.WriteLine("  Use a previous seed with new constraints");
+            Console.WriteLine("> Load a previous seed");
             Console.WriteLine("  Use a new random seed");
             Console.WriteLine("  Fully random generation");
 
-            int numOfOptions = 4;
+            int numOfOptions = 3;
             int option = 0;
             do
             {
@@ -568,13 +632,9 @@ namespace Nea_as_of_december
                     {
                         return 2;
                     }
-                    else if (option == 2)
+                    else 
                     {
                         return 3;
-                    }
-                    else
-                    {
-                        return 4;
                     }
                 }
             } while (true);
@@ -643,7 +703,7 @@ namespace Nea_as_of_december
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("> Enter x size of grid (10 to 500)                           : ", 10, 500, option);
+                        int choice = ValidateInt("> Enter x size of grid (10 to 500)                           : ", 10, 500, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
@@ -651,7 +711,7 @@ namespace Nea_as_of_december
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("> Enter y size of grid (10 to 500)                           : ", 10, 500, option);
+                        int choice = ValidateInt("> Enter y size of grid (10 to 500)                           : ", 10, 500, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
@@ -659,7 +719,7 @@ namespace Nea_as_of_december
                     {
                         Console.CursorTop = option + 16;
                         Console.CursorLeft = 63;
-                        int choice = ValidateInt2("  Enter blend function percent (0 to 100, 20-40 reccomended):  ", 0, 100, option);
+                        int choice = ValidateInt("  Enter blend function percent (0 to 100, 20-40 reccomended):  ", 0, 100, option);
                         constraintsList[option] = choice;
                         Console.CursorTop = option + 16;
                     }
